@@ -1,0 +1,469 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Interactive Quiz</title>
+  <style>
+    :root{
+      --bg:#0b0f19;
+      --card:#111827;
+      --muted:#94a3b8;
+      --text:#e5e7eb;
+      --border:#243043;
+      --accent:#60a5fa;
+      --good:#34d399;
+      --bad:#fb7185;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      background: radial-gradient(1200px 800px at 20% 0%, #0f172a, var(--bg));
+      color:var(--text);
+      line-height:1.45;
+      padding:18px;
+    }
+    .wrap{max-width:860px;margin:0 auto}
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+      border:1px solid var(--border);
+      border-radius:16px;
+      padding:18px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.25);
+    }
+    .header{
+      display:flex;gap:14px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;
+      margin-bottom:14px;
+    }
+    h1{font-size:20px;margin:0 0 6px 0}
+    .sub{color:var(--muted);font-size:13px;margin:0}
+    .meta{display:flex;gap:10px;flex-wrap:wrap;color:var(--muted);font-size:12px}
+    .pill{
+      border:1px solid var(--border);
+      border-radius:999px;
+      padding:6px 10px;
+      background: rgba(17,24,39,.55);
+    }
+
+    .progress{
+      height:10px;border-radius:999px;background:rgba(148,163,184,.18);
+      overflow:hidden;border:1px solid rgba(36,48,67,.8);
+      margin:14px 0 18px 0;
+    }
+    .bar{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),#a78bfa)}
+    .q{
+      font-size:16px;
+      margin:0 0 12px 0;
+    }
+
+    .choices{display:grid;gap:10px;margin:0 0 16px 0}
+    .choice{
+      width:100%;
+      text-align:left;
+      padding:12px 12px;
+      border-radius:12px;
+      border:1px solid rgba(36,48,67,.9);
+      background: rgba(17,24,39,.65);
+      color:var(--text);
+      cursor:pointer;
+      transition: transform .04s ease, border-color .2s ease, background .2s ease;
+    }
+    .choice:hover{border-color:rgba(96,165,250,.7)}
+    .choice:active{transform: translateY(1px)}
+    .choice[disabled]{cursor:not-allowed;opacity:.85}
+
+    .choice.correct{
+      border-color: rgba(52,211,153,.75);
+      background: rgba(16,185,129,.10);
+    }
+    .choice.incorrect{
+      border-color: rgba(251,113,133,.75);
+      background: rgba(244,63,94,.10);
+    }
+
+    .explain{
+      border-left:3px solid rgba(148,163,184,.4);
+      padding:10px 12px;
+      margin:10px 0 0 0;
+      color: var(--muted);
+      background: rgba(17,24,39,.35);
+      border-radius:12px;
+      display:none;
+    }
+
+    .controls{
+      display:flex;
+      gap:10px;
+      justify-content:space-between;
+      align-items:center;
+      flex-wrap:wrap;
+      margin-top:16px;
+    }
+    .btn{
+      appearance:none;
+      border:1px solid rgba(36,48,67,.9);
+      background: rgba(17,24,39,.85);
+      color: var(--text);
+      padding:10px 12px;
+      border-radius:12px;
+      cursor:pointer;
+      font-weight:600;
+      font-size:13px;
+      transition: border-color .2s ease, background .2s ease, transform .04s ease;
+    }
+    .btn:hover{border-color:rgba(96,165,250,.7)}
+    .btn:active{transform:translateY(1px)}
+    .btn.primary{
+      background: linear-gradient(90deg, rgba(96,165,250,.9), rgba(167,139,250,.85));
+      border-color: rgba(96,165,250,.7);
+      color:#0b1020;
+    }
+    .btn[disabled]{opacity:.55;cursor:not-allowed}
+
+    .results{
+      display:none;
+      margin-top:14px;
+      padding:14px;
+      border-radius:14px;
+      border:1px solid rgba(36,48,67,.9);
+      background: rgba(17,24,39,.55);
+    }
+    .scoreline{
+      display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;align-items:center;
+      margin-bottom:8px;
+    }
+    .big{font-size:18px;font-weight:800;margin:0}
+    .muted{color:var(--muted);margin:0;font-size:13px}
+    .cta{
+      margin-top:12px;
+      padding-top:12px;
+      border-top:1px dashed rgba(148,163,184,.35);
+    }
+    a{color:var(--accent);text-decoration:none}
+    a:hover{text-decoration:underline}
+
+    /* Make it embed-friendly */
+    @media (prefers-color-scheme: light){
+      /* Keep dark theme consistent inside embeds */
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="header">
+        <div>
+          <h1 id="quizTitle">Quiz</h1>
+          <p class="sub" id="quizSubtitle">Test your knowledge.</p>
+        </div>
+        <div class="meta">
+          <div class="pill" id="pillCount">0 questions</div>
+          <div class="pill" id="pillMode">Scored quiz</div>
+        </div>
+      </div>
+
+      <div class="progress" aria-label="Progress">
+        <div class="bar" id="bar"></div>
+      </div>
+
+      <div id="stage">
+        <p class="q" id="questionText"></p>
+        <div class="choices" id="choices"></div>
+        <div class="explain" id="explain"></div>
+
+        <div class="controls">
+          <button class="btn" id="backBtn">Back</button>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button class="btn" id="restartBtn">Restart</button>
+            <button class="btn primary" id="nextBtn" disabled>Next</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="results" id="results">
+        <div class="scoreline">
+          <p class="big" id="resultHeadline">Your results</p>
+          <div class="pill" id="resultScorePill">Score: 0/0</div>
+        </div>
+        <p class="muted" id="resultMessage"></p>
+
+        <div class="cta" id="ctaBlock" style="display:none">
+          <p class="muted" style="margin-bottom:8px" id="ctaText"></p>
+          <a id="ctaLink" href="#" target="_blank" rel="noopener">Continue →</a>
+        </div>
+
+        <div class="controls">
+          <button class="btn" id="reviewBtn">Review answers</button>
+          <button class="btn primary" id="restartBtn2">Take again</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/** =========================
+ *  EDIT THIS BLOCK ONLY
+ *  ========================= */
+const QUIZ_DATA = {
+  title: "Your Quiz Title",
+  subtitle: "A short one-line description goes here.",
+  showExplanations: true,  // show explanation after answering
+  shuffleQuestions: false, // set true if you want randomized question order
+  shuffleChoices: false,   // set true if you want randomized answer order
+
+  // Optional call-to-action shown on the results screen
+  cta: {
+    enabled: true,
+    text: "Want more like this? Subscribe for weekly posts.",
+    linkText: "Subscribe",
+    url: "https://your-substack-url-here"
+  },
+
+  // Score bands for the results message (customize these)
+  scoreBands: [
+    { minPct: 0.90, headline: "Elite score 🏆", message: "You really know your stuff." },
+    { minPct: 0.70, headline: "Strong score 💪", message: "Great instincts — just a couple missed." },
+    { minPct: 0.40, headline: "Solid start ✨", message: "You’ve got the basics. One more pass and you’ll crush it." },
+    { minPct: 0.00, headline: "Warm-up round 🔥", message: "No worries — take it again and watch your score jump." }
+  ],
+
+  // Your questions
+  questions: [
+    {
+      q: "Sample Question: Which option is correct?",
+      choices: ["Option A", "Option B", "Option C", "Option D"],
+      correctIndex: 1,
+      explanation: "Option B is correct because this is a demo explanation."
+    },
+    {
+      q: "Sample Question 2: Pick the best answer.",
+      choices: ["Answer 1", "Answer 2", "Answer 3"],
+      correctIndex: 2,
+      explanation: "Answer 3 is correct for demo purposes."
+    }
+  ]
+};
+/** =========================
+ *  END EDIT BLOCK
+ *  ========================= */
+
+const els = {
+  title: document.getElementById("quizTitle"),
+  subtitle: document.getElementById("quizSubtitle"),
+  pillCount: document.getElementById("pillCount"),
+  pillMode: document.getElementById("pillMode"),
+  bar: document.getElementById("bar"),
+  questionText: document.getElementById("questionText"),
+  choices: document.getElementById("choices"),
+  explain: document.getElementById("explain"),
+  backBtn: document.getElementById("backBtn"),
+  nextBtn: document.getElementById("nextBtn"),
+  restartBtn: document.getElementById("restartBtn"),
+  results: document.getElementById("results"),
+  stage: document.getElementById("stage"),
+  resultHeadline: document.getElementById("resultHeadline"),
+  resultMessage: document.getElementById("resultMessage"),
+  resultScorePill: document.getElementById("resultScorePill"),
+  reviewBtn: document.getElementById("reviewBtn"),
+  restartBtn2: document.getElementById("restartBtn2"),
+  ctaBlock: document.getElementById("ctaBlock"),
+  ctaText: document.getElementById("ctaText"),
+  ctaLink: document.getElementById("ctaLink"),
+};
+
+function deepCopy(obj){ return JSON.parse(JSON.stringify(obj)); }
+
+let quiz = deepCopy(QUIZ_DATA);
+let order = [];
+let index = 0;
+let answers = []; // { pickedIndex, isCorrect }
+let locked = false;
+
+function shuffle(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+  return arr;
+}
+
+function init(){
+  quiz = deepCopy(QUIZ_DATA);
+
+  // Basic validation (light)
+  if(!quiz.questions || !quiz.questions.length){
+    quiz.questions = [{ q:"No questions found.", choices:["OK"], correctIndex:0, explanation:"" }];
+  }
+
+  els.title.textContent = quiz.title || "Quiz";
+  els.subtitle.textContent = quiz.subtitle || "";
+  els.pillCount.textContent = `${quiz.questions.length} question${quiz.questions.length===1?"":"s"}`;
+  els.pillMode.textContent = "Scored quiz";
+
+  order = quiz.questions.map((_,i)=>i);
+  if(quiz.shuffleQuestions) shuffle(order);
+
+  // Optionally shuffle choices per question (while keeping correct index accurate)
+  if(quiz.shuffleChoices){
+    for(const qi of order){
+      const qObj = quiz.questions[qi];
+      const mapped = qObj.choices.map((text,i)=>({text, i}));
+      shuffle(mapped);
+      qObj.choices = mapped.map(x=>x.text);
+      qObj.correctIndex = mapped.findIndex(x=>x.i === qObj.correctIndex);
+    }
+  }
+
+  index = 0;
+  answers = Array(quiz.questions.length).fill(null);
+  locked = false;
+
+  els.results.style.display = "none";
+  els.stage.style.display = "block";
+
+  setupCTA();
+  render();
+}
+
+function setupCTA(){
+  const c = quiz.cta || {};
+  if(c.enabled && c.url){
+    els.ctaBlock.style.display = "block";
+    els.ctaText.textContent = c.text || "";
+    els.ctaLink.textContent = c.linkText || "Learn more";
+    els.ctaLink.href = c.url;
+  } else {
+    els.ctaBlock.style.display = "none";
+  }
+}
+
+function render(){
+  const total = order.length;
+  const qIdx = order[index];
+  const qObj = quiz.questions[qIdx];
+
+  els.questionText.textContent = `Q${index+1}. ${qObj.q}`;
+  els.choices.innerHTML = "";
+  els.explain.style.display = "none";
+  els.explain.textContent = "";
+
+  const progressPct = Math.round((index/total)*100);
+  els.bar.style.width = `${progressPct}%`;
+
+  els.backBtn.disabled = (index === 0);
+  els.nextBtn.disabled = (answers[index] === null);
+  els.nextBtn.textContent = (index === total-1) ? "See results" : "Next";
+
+  locked = false;
+
+  qObj.choices.forEach((choiceText, ci) => {
+    const btn = document.createElement("button");
+    btn.className = "choice";
+    btn.type = "button";
+    btn.textContent = choiceText;
+
+    // If already answered, show state
+    const prev = answers[index];
+    if(prev){
+      btn.disabled = true;
+      if(ci === qObj.correctIndex) btn.classList.add("correct");
+      if(ci === prev.pickedIndex && !prev.isCorrect) btn.classList.add("incorrect");
+      if(quiz.showExplanations && qObj.explanation){
+        els.explain.style.display = "block";
+        els.explain.textContent = qObj.explanation;
+      }
+    }
+
+    btn.addEventListener("click", () => pick(ci));
+    els.choices.appendChild(btn);
+  });
+}
+
+function pick(pickedIndex){
+  if(locked) return;
+  locked = true;
+
+  const qIdx = order[index];
+  const qObj = quiz.questions[qIdx];
+  const isCorrect = (pickedIndex === qObj.correctIndex);
+
+  answers[index] = { pickedIndex, isCorrect };
+
+  // Mark buttons
+  const btns = Array.from(els.choices.querySelectorAll("button.choice"));
+  btns.forEach((b, ci) => {
+    b.disabled = true;
+    if(ci === qObj.correctIndex) b.classList.add("correct");
+    if(ci === pickedIndex && !isCorrect) b.classList.add("incorrect");
+  });
+
+  if(quiz.showExplanations && qObj.explanation){
+    els.explain.style.display = "block";
+    els.explain.textContent = qObj.explanation;
+  }
+
+  els.nextBtn.disabled = false;
+}
+
+function computeScore(){
+  const total = answers.length;
+  const correct = answers.filter(a => a && a.isCorrect).length;
+  const pct = total ? (correct / total) : 0;
+  return { total, correct, pct };
+}
+
+function showResults(){
+  const { total, correct, pct } = computeScore();
+
+  let band = (quiz.scoreBands || []).slice().sort((a,b)=>b.minPct-a.minPct)
+    .find(b => pct >= b.minPct);
+
+  if(!band){
+    band = { headline:"Your results", message:"Thanks for taking the quiz." };
+  }
+
+  els.resultHeadline.textContent = band.headline || "Your results";
+  els.resultMessage.textContent = band.message || "";
+  els.resultScorePill.textContent = `Score: ${correct}/${total}`;
+
+  els.bar.style.width = `100%`;
+
+  els.stage.style.display = "none";
+  els.results.style.display = "block";
+}
+
+function goNext(){
+  const total = order.length;
+  if(index === total-1){
+    showResults();
+    return;
+  }
+  index += 1;
+  render();
+}
+
+function goBack(){
+  if(index === 0) return;
+  index -= 1;
+  render();
+}
+
+function review(){
+  els.results.style.display = "none";
+  els.stage.style.display = "block";
+  index = 0;
+  render();
+}
+
+els.nextBtn.addEventListener("click", goNext);
+els.backBtn.addEventListener("click", goBack);
+els.restartBtn.addEventListener("click", init);
+els.restartBtn2.addEventListener("click", init);
+els.reviewBtn.addEventListener("click", review);
+
+
+init();
+</script>
+</body>
+</html>
