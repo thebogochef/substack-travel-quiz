@@ -1,469 +1,254 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Interactive Quiz</title>
-  <style>
-    :root{
-      --bg:#0b0f19;
-      --card:#111827;
-      --muted:#94a3b8;
-      --text:#e5e7eb;
-      --border:#243043;
-      --accent:#60a5fa;
-      --good:#34d399;
-      --bad:#fb7185;
-    }
-    *{box-sizing:border-box}
-    body{
-      margin:0;
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
-      background: radial-gradient(1200px 800px at 20% 0%, #0f172a, var(--bg));
-      color:var(--text);
-      line-height:1.45;
-      padding:18px;
-    }
-    .wrap{max-width:860px;margin:0 auto}
-    .card{
-      background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
-      border:1px solid var(--border);
-      border-radius:16px;
-      padding:18px;
-      box-shadow: 0 10px 30px rgba(0,0,0,.25);
-    }
-    .header{
-      display:flex;gap:14px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;
-      margin-bottom:14px;
-    }
-    h1{font-size:20px;margin:0 0 6px 0}
-    .sub{color:var(--muted);font-size:13px;margin:0}
-    .meta{display:flex;gap:10px;flex-wrap:wrap;color:var(--muted);font-size:12px}
-    .pill{
-      border:1px solid var(--border);
-      border-radius:999px;
-      padding:6px 10px;
-      background: rgba(17,24,39,.55);
-    }
-
-    .progress{
-      height:10px;border-radius:999px;background:rgba(148,163,184,.18);
-      overflow:hidden;border:1px solid rgba(36,48,67,.8);
-      margin:14px 0 18px 0;
-    }
-    .bar{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),#a78bfa)}
-    .q{
-      font-size:16px;
-      margin:0 0 12px 0;
-    }
-
-    .choices{display:grid;gap:10px;margin:0 0 16px 0}
-    .choice{
-      width:100%;
-      text-align:left;
-      padding:12px 12px;
-      border-radius:12px;
-      border:1px solid rgba(36,48,67,.9);
-      background: rgba(17,24,39,.65);
-      color:var(--text);
-      cursor:pointer;
-      transition: transform .04s ease, border-color .2s ease, background .2s ease;
-    }
-    .choice:hover{border-color:rgba(96,165,250,.7)}
-    .choice:active{transform: translateY(1px)}
-    .choice[disabled]{cursor:not-allowed;opacity:.85}
-
-    .choice.correct{
-      border-color: rgba(52,211,153,.75);
-      background: rgba(16,185,129,.10);
-    }
-    .choice.incorrect{
-      border-color: rgba(251,113,133,.75);
-      background: rgba(244,63,94,.10);
-    }
-
-    .explain{
-      border-left:3px solid rgba(148,163,184,.4);
-      padding:10px 12px;
-      margin:10px 0 0 0;
-      color: var(--muted);
-      background: rgba(17,24,39,.35);
-      border-radius:12px;
-      display:none;
-    }
-
-    .controls{
-      display:flex;
-      gap:10px;
-      justify-content:space-between;
-      align-items:center;
-      flex-wrap:wrap;
-      margin-top:16px;
-    }
-    .btn{
-      appearance:none;
-      border:1px solid rgba(36,48,67,.9);
-      background: rgba(17,24,39,.85);
-      color: var(--text);
-      padding:10px 12px;
-      border-radius:12px;
-      cursor:pointer;
-      font-weight:600;
-      font-size:13px;
-      transition: border-color .2s ease, background .2s ease, transform .04s ease;
-    }
-    .btn:hover{border-color:rgba(96,165,250,.7)}
-    .btn:active{transform:translateY(1px)}
-    .btn.primary{
-      background: linear-gradient(90deg, rgba(96,165,250,.9), rgba(167,139,250,.85));
-      border-color: rgba(96,165,250,.7);
-      color:#0b1020;
-    }
-    .btn[disabled]{opacity:.55;cursor:not-allowed}
-
-    .results{
-      display:none;
-      margin-top:14px;
-      padding:14px;
-      border-radius:14px;
-      border:1px solid rgba(36,48,67,.9);
-      background: rgba(17,24,39,.55);
-    }
-    .scoreline{
-      display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;align-items:center;
-      margin-bottom:8px;
-    }
-    .big{font-size:18px;font-weight:800;margin:0}
-    .muted{color:var(--muted);margin:0;font-size:13px}
-    .cta{
-      margin-top:12px;
-      padding-top:12px;
-      border-top:1px dashed rgba(148,163,184,.35);
-    }
-    a{color:var(--accent);text-decoration:none}
-    a:hover{text-decoration:underline}
-
-    /* Make it embed-friendly */
-    @media (prefers-color-scheme: light){
-      /* Keep dark theme consistent inside embeds */
-    }
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <div class="card">
-      <div class="header">
-        <div>
-          <h1 id="quizTitle">Quiz</h1>
-          <p class="sub" id="quizSubtitle">Test your knowledge.</p>
-        </div>
-        <div class="meta">
-          <div class="pill" id="pillCount">0 questions</div>
-          <div class="pill" id="pillMode">Scored quiz</div>
-        </div>
-      </div>
-
-      <div class="progress" aria-label="Progress">
-        <div class="bar" id="bar"></div>
-      </div>
-
-      <div id="stage">
-        <p class="q" id="questionText"></p>
-        <div class="choices" id="choices"></div>
-        <div class="explain" id="explain"></div>
-
-        <div class="controls">
-          <button class="btn" id="backBtn">Back</button>
-          <div style="display:flex;gap:10px;flex-wrap:wrap">
-            <button class="btn" id="restartBtn">Restart</button>
-            <button class="btn primary" id="nextBtn" disabled>Next</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="results" id="results">
-        <div class="scoreline">
-          <p class="big" id="resultHeadline">Your results</p>
-          <div class="pill" id="resultScorePill">Score: 0/0</div>
-        </div>
-        <p class="muted" id="resultMessage"></p>
-
-        <div class="cta" id="ctaBlock" style="display:none">
-          <p class="muted" style="margin-bottom:8px" id="ctaText"></p>
-          <a id="ctaLink" href="#" target="_blank" rel="noopener">Continue →</a>
-        </div>
-
-        <div class="controls">
-          <button class="btn" id="reviewBtn">Review answers</button>
-          <button class="btn primary" id="restartBtn2">Take again</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-<script>
-/** =========================
- *  EDIT THIS BLOCK ONLY
- *  ========================= */
 const QUIZ_DATA = {
-  title: "Your Quiz Title",
-  subtitle: "A short one-line description goes here.",
-  showExplanations: true,  // show explanation after answering
-  shuffleQuestions: false, // set true if you want randomized question order
-  shuffleChoices: false,   // set true if you want randomized answer order
+  title: "Travel Archetypes Quiz",
+  subtitle: "Answer 20 quick questions to discover your travel archetype.",
+  showExplanations: false,
+  shuffleQuestions: false,
+  shuffleChoices: false,
 
-  // Optional call-to-action shown on the results screen
+  // Substack CTA on results screen
   cta: {
     enabled: true,
-    text: "Want more like this? Subscribe for weekly posts.",
+    text: "Want destination ideas tailored to your archetype? Subscribe for weekly travel intel.",
     linkText: "Subscribe",
     url: "https://your-substack-url-here"
   },
 
-  // Score bands for the results message (customize these)
-  scoreBands: [
-    { minPct: 0.90, headline: "Elite score 🏆", message: "You really know your stuff." },
-    { minPct: 0.70, headline: "Strong score 💪", message: "Great instincts — just a couple missed." },
-    { minPct: 0.40, headline: "Solid start ✨", message: "You’ve got the basics. One more pass and you’ll crush it." },
-    { minPct: 0.00, headline: "Warm-up round 🔥", message: "No worries — take it again and watch your score jump." }
-  ],
+  // Personality archetypes + result copy
+  archetypes: {
+    A: {
+      name: "The Seeker",
+      headline: "You’re The Seeker",
+      message:
+        "You travel to be changed. You’re drawn to meaning, culture, spiritual depth, and moments that linger long after you’re home."
+    },
+    B: {
+      name: "The Connector",
+      headline: "You’re The Connector",
+      message:
+        "You travel through people. Your best trips are built on conversation, local life, and the feeling of being welcomed somewhere new."
+    },
+    C: {
+      name: "The Curator",
+      headline: "You’re The Curator",
+      message:
+        "You travel with taste and intention. Details matter—design, food, hotels, and experiences that feel composed rather than chaotic."
+    },
+    D: {
+      name: "The Explorer",
+      headline: "You’re The Explorer",
+      message:
+        "You travel for discovery. You’re energized by the unknown, movement, and places that feel untraveled—especially the ones off the map."
+    },
+    E: {
+      name: "The Restorer",
+      headline: "You’re The Restorer",
+      message:
+        "You travel to reset your nervous system. Quiet, comfort, and low-stimulation beauty are the point—not a guilty pleasure."
+    }
+  },
 
-  // Your questions
+  // Your 20 questions
   questions: [
     {
-      q: "Sample Question: Which option is correct?",
-      choices: ["Option A", "Option B", "Option C", "Option D"],
-      correctIndex: 1,
-      explanation: "Option B is correct because this is a demo explanation."
+      q: "A perfect trip leaves you feeling...",
+      choices: [
+        { text: "Changed, reflective, more grounded", key: "A" },
+        { text: "Connected to people you didn’t know before", key: "B" },
+        { text: "Inspired by beauty and intention", key: "C" },
+        { text: "Energized by discovery", key: "D" },
+        { text: "Rested and reset", key: "E" }
+      ]
     },
     {
-      q: "Sample Question 2: Pick the best answer.",
-      choices: ["Answer 1", "Answer 2", "Answer 3"],
-      correctIndex: 2,
-      explanation: "Answer 3 is correct for demo purposes."
+      q: "You usually choose a destination because...",
+      choices: [
+        { text: "It has cultural or spiritual depth", key: "A" },
+        { text: "You want to meet people or experience local life", key: "B" },
+        { text: "The food, design, or hotel excites you", key: "C" },
+        { text: "You’ve never been—and few others have", key: "D" },
+        { text: "It promises peace and quiet", key: "E" }
+      ]
+    },
+    {
+      q: "Your ideal travel pace is...",
+      choices: [
+        { text: "Slow and intentional", key: "A" },
+        { text: "Flexible and social", key: "B" },
+        { text: "Structured but thoughtful", key: "C" },
+        { text: "Constantly moving", key: "D" },
+        { text: "Unhurried and minimal", key: "E" }
+      ]
+    },
+    {
+      q: "The worst thing that can happen on a trip is...",
+      choices: [
+        { text: "It feels hollow or performative", key: "A" },
+        { text: "You don’t connect with anyone", key: "B" },
+        { text: "It feels sloppy or poorly planned", key: "C" },
+        { text: "You’re bored", key: "D" },
+        { text: "You come home exhausted", key: "E" }
+      ]
+    },
+    {
+      q: "Your ideal accommodation is...",
+      choices: [
+        { text: "A place with history or soul", key: "A" },
+        { text: "Somewhere people naturally gather", key: "B" },
+        { text: "A beautifully designed boutique hotel", key: "C" },
+        { text: "Anywhere that allows freedom and movement", key: "D" },
+        { text: "Private, peaceful, and comfortable", key: "E" }
+      ]
+    },
+    {
+      q: "Your favorite travel moment is usually...",
+      choices: [
+        { text: "A quiet, unexpected realization", key: "A" },
+        { text: "A long conversation with a stranger", key: "B" },
+        { text: "A perfectly composed meal or room", key: "C" },
+        { text: "Finding something unmarked on the map", key: "D" },
+        { text: "Doing nothing—without guilt", key: "E" }
+      ]
+    },
+    {
+      q: "When a trip goes wrong, you...",
+      choices: [
+        { text: "Reflect and reframe", key: "A" },
+        { text: "Lean into the people around you", key: "B" },
+        { text: "Try to fix or optimize", key: "C" },
+        { text: "Pivot to something else", key: "D" },
+        { text: "Pull back and protect your energy", key: "E" }
+      ]
+    },
+    {
+      q: "You’re most likely to splurge on...",
+      choices: [
+        { text: "A meaningful experience", key: "A" },
+        { text: "A shared meal or gathering", key: "B" },
+        { text: "A special hotel or restaurant", key: "C" },
+        { text: "Transportation to somewhere remote", key: "D" },
+        { text: "Comfort and convenience", key: "E" }
+      ]
+    },
+    {
+      q: "Your packing style is...",
+      choices: [
+        { text: "Thoughtful and minimal", key: "A" },
+        { text: "Practical and flexible", key: "B" },
+        { text: "Planned and intentional", key: "C" },
+        { text: "Ready for anything", key: "D" },
+        { text: "Comfort-first", key: "E" }
+      ]
+    },
+    {
+      q: "At its core, travel is about...",
+      choices: [
+        { text: "Personal growth", key: "A" },
+        { text: "Human connection", key: "B" },
+        { text: "Living beautifully", key: "C" },
+        { text: "Discovery", key: "D" },
+        { text: "Restoration", key: "E" }
+      ]
+    },
+    {
+      q: "When planning a trip, you’re most excited about...",
+      choices: [
+        { text: "How it might change your perspective", key: "A" },
+        { text: "Who you might meet", key: "B" },
+        { text: "Curating the experience", key: "C" },
+        { text: "The unknown", key: "D" },
+        { text: "Finally slowing down", key: "E" }
+      ]
+    },
+    {
+      q: "Your relationship with itineraries is...",
+      choices: [
+        { text: "A loose guide", key: "A" },
+        { text: "A social framework", key: "B" },
+        { text: "Carefully considered", key: "C" },
+        { text: "Optional at best", key: "D" },
+        { text: "Minimal", key: "E" }
+      ]
+    },
+    {
+      q: "You’re happiest at a destination when...",
+      choices: [
+        { text: "You feel emotionally present", key: "A" },
+        { text: "You feel welcomed", key: "B" },
+        { text: "Everything feels intentional", key: "C" },
+        { text: "You’re discovering constantly", key: "D" },
+        { text: "Your nervous system relaxes", key: "E" }
+      ]
+    },
+    {
+      q: "If you had one day somewhere new, you’d...",
+      choices: [
+        { text: "Choose one meaningful experience", key: "A" },
+        { text: "Spend it talking with locals", key: "B" },
+        { text: "Curate a perfect mix of food and place", key: "C" },
+        { text: "Cover as much ground as possible", key: "D" },
+        { text: "Find the calmest spot and stay", key: "E" }
+      ]
+    },
+    {
+      q: "The phrase that resonates most with you...",
+      choices: [
+        { text: "Travel should transform you", key: "A" },
+        { text: "The best stories come from people", key: "B" },
+        { text: "Details matter", key: "C" },
+        { text: "I’ve never been there", key: "D" },
+        { text: "Rest is the luxury", key: "E" }
+      ]
+    },
+    {
+      q: "You feel disappointed by a trip if...",
+      choices: [
+        { text: "It feels rushed or shallow", key: "A" },
+        { text: "It feels isolating", key: "B" },
+        { text: "It lacks intention", key: "C" },
+        { text: "It feels repetitive", key: "D" },
+        { text: "It’s overstimulating", key: "E" }
+      ]
+    },
+    {
+      q: "Your ideal travel companion is someone who...",
+      choices: [
+        { text: "Enjoys deep conversations", key: "A" },
+        { text: "Is open and social", key: "B" },
+        { text: "Shares your taste level", key: "C" },
+        { text: "Is spontaneous", key: "D" },
+        { text: "Respects downtime", key: "E" }
+      ]
+    },
+    {
+      q: "When you return home, you want to say...",
+      choices: [
+        { text: "That really stayed with me", key: "A" },
+        { text: "I met incredible people", key: "B" },
+        { text: "Everything felt thoughtful", key: "C" },
+        { text: "I saw so much", key: "D" },
+        { text: "I finally feel rested", key: "E" }
+      ]
+    },
+    {
+      q: "Your favorite travel photos capture...",
+      choices: [
+        { text: "Quiet moments", key: "A" },
+        { text: "People and interactions", key: "B" },
+        { text: "Design, food, or composition", key: "C" },
+        { text: "Landscapes and movement", key: "D" },
+        { text: "Calm, open space", key: "E" }
+      ]
+    },
+    {
+      q: "Travel, at its best, helps you...",
+      choices: [
+        { text: "Understand yourself better", key: "A" },
+        { text: "Feel more connected to the world", key: "B" },
+        { text: "Live with intention", key: "C" },
+        { text: "Feel curious and alive", key: "D" },
+        { text: "Restore balance", key: "E" }
+      ]
     }
   ]
 };
-/** =========================
- *  END EDIT BLOCK
- *  ========================= */
 
-const els = {
-  title: document.getElementById("quizTitle"),
-  subtitle: document.getElementById("quizSubtitle"),
-  pillCount: document.getElementById("pillCount"),
-  pillMode: document.getElementById("pillMode"),
-  bar: document.getElementById("bar"),
-  questionText: document.getElementById("questionText"),
-  choices: document.getElementById("choices"),
-  explain: document.getElementById("explain"),
-  backBtn: document.getElementById("backBtn"),
-  nextBtn: document.getElementById("nextBtn"),
-  restartBtn: document.getElementById("restartBtn"),
-  results: document.getElementById("results"),
-  stage: document.getElementById("stage"),
-  resultHeadline: document.getElementById("resultHeadline"),
-  resultMessage: document.getElementById("resultMessage"),
-  resultScorePill: document.getElementById("resultScorePill"),
-  reviewBtn: document.getElementById("reviewBtn"),
-  restartBtn2: document.getElementById("restartBtn2"),
-  ctaBlock: document.getElementById("ctaBlock"),
-  ctaText: document.getElementById("ctaText"),
-  ctaLink: document.getElementById("ctaLink"),
-};
-
-function deepCopy(obj){ return JSON.parse(JSON.stringify(obj)); }
-
-let quiz = deepCopy(QUIZ_DATA);
-let order = [];
-let index = 0;
-let answers = []; // { pickedIndex, isCorrect }
-let locked = false;
-
-function shuffle(arr){
-  for(let i=arr.length-1;i>0;i--){
-    const j = Math.floor(Math.random()*(i+1));
-    [arr[i],arr[j]]=[arr[j],arr[i]];
-  }
-  return arr;
-}
-
-function init(){
-  quiz = deepCopy(QUIZ_DATA);
-
-  // Basic validation (light)
-  if(!quiz.questions || !quiz.questions.length){
-    quiz.questions = [{ q:"No questions found.", choices:["OK"], correctIndex:0, explanation:"" }];
-  }
-
-  els.title.textContent = quiz.title || "Quiz";
-  els.subtitle.textContent = quiz.subtitle || "";
-  els.pillCount.textContent = `${quiz.questions.length} question${quiz.questions.length===1?"":"s"}`;
-  els.pillMode.textContent = "Scored quiz";
-
-  order = quiz.questions.map((_,i)=>i);
-  if(quiz.shuffleQuestions) shuffle(order);
-
-  // Optionally shuffle choices per question (while keeping correct index accurate)
-  if(quiz.shuffleChoices){
-    for(const qi of order){
-      const qObj = quiz.questions[qi];
-      const mapped = qObj.choices.map((text,i)=>({text, i}));
-      shuffle(mapped);
-      qObj.choices = mapped.map(x=>x.text);
-      qObj.correctIndex = mapped.findIndex(x=>x.i === qObj.correctIndex);
-    }
-  }
-
-  index = 0;
-  answers = Array(quiz.questions.length).fill(null);
-  locked = false;
-
-  els.results.style.display = "none";
-  els.stage.style.display = "block";
-
-  setupCTA();
-  render();
-}
-
-function setupCTA(){
-  const c = quiz.cta || {};
-  if(c.enabled && c.url){
-    els.ctaBlock.style.display = "block";
-    els.ctaText.textContent = c.text || "";
-    els.ctaLink.textContent = c.linkText || "Learn more";
-    els.ctaLink.href = c.url;
-  } else {
-    els.ctaBlock.style.display = "none";
-  }
-}
-
-function render(){
-  const total = order.length;
-  const qIdx = order[index];
-  const qObj = quiz.questions[qIdx];
-
-  els.questionText.textContent = `Q${index+1}. ${qObj.q}`;
-  els.choices.innerHTML = "";
-  els.explain.style.display = "none";
-  els.explain.textContent = "";
-
-  const progressPct = Math.round((index/total)*100);
-  els.bar.style.width = `${progressPct}%`;
-
-  els.backBtn.disabled = (index === 0);
-  els.nextBtn.disabled = (answers[index] === null);
-  els.nextBtn.textContent = (index === total-1) ? "See results" : "Next";
-
-  locked = false;
-
-  qObj.choices.forEach((choiceText, ci) => {
-    const btn = document.createElement("button");
-    btn.className = "choice";
-    btn.type = "button";
-    btn.textContent = choiceText;
-
-    // If already answered, show state
-    const prev = answers[index];
-    if(prev){
-      btn.disabled = true;
-      if(ci === qObj.correctIndex) btn.classList.add("correct");
-      if(ci === prev.pickedIndex && !prev.isCorrect) btn.classList.add("incorrect");
-      if(quiz.showExplanations && qObj.explanation){
-        els.explain.style.display = "block";
-        els.explain.textContent = qObj.explanation;
-      }
-    }
-
-    btn.addEventListener("click", () => pick(ci));
-    els.choices.appendChild(btn);
-  });
-}
-
-function pick(pickedIndex){
-  if(locked) return;
-  locked = true;
-
-  const qIdx = order[index];
-  const qObj = quiz.questions[qIdx];
-  const isCorrect = (pickedIndex === qObj.correctIndex);
-
-  answers[index] = { pickedIndex, isCorrect };
-
-  // Mark buttons
-  const btns = Array.from(els.choices.querySelectorAll("button.choice"));
-  btns.forEach((b, ci) => {
-    b.disabled = true;
-    if(ci === qObj.correctIndex) b.classList.add("correct");
-    if(ci === pickedIndex && !isCorrect) b.classList.add("incorrect");
-  });
-
-  if(quiz.showExplanations && qObj.explanation){
-    els.explain.style.display = "block";
-    els.explain.textContent = qObj.explanation;
-  }
-
-  els.nextBtn.disabled = false;
-}
-
-function computeScore(){
-  const total = answers.length;
-  const correct = answers.filter(a => a && a.isCorrect).length;
-  const pct = total ? (correct / total) : 0;
-  return { total, correct, pct };
-}
-
-function showResults(){
-  const { total, correct, pct } = computeScore();
-
-  let band = (quiz.scoreBands || []).slice().sort((a,b)=>b.minPct-a.minPct)
-    .find(b => pct >= b.minPct);
-
-  if(!band){
-    band = { headline:"Your results", message:"Thanks for taking the quiz." };
-  }
-
-  els.resultHeadline.textContent = band.headline || "Your results";
-  els.resultMessage.textContent = band.message || "";
-  els.resultScorePill.textContent = `Score: ${correct}/${total}`;
-
-  els.bar.style.width = `100%`;
-
-  els.stage.style.display = "none";
-  els.results.style.display = "block";
-}
-
-function goNext(){
-  const total = order.length;
-  if(index === total-1){
-    showResults();
-    return;
-  }
-  index += 1;
-  render();
-}
-
-function goBack(){
-  if(index === 0) return;
-  index -= 1;
-  render();
-}
-
-function review(){
-  els.results.style.display = "none";
-  els.stage.style.display = "block";
-  index = 0;
-  render();
-}
-
-els.nextBtn.addEventListener("click", goNext);
-els.backBtn.addEventListener("click", goBack);
-els.restartBtn.addEventListener("click", init);
-els.restartBtn2.addEventListener("click", init);
-els.reviewBtn.addEventListener("click", review);
-
-
-init();
-</script>
-</body>
-</html>
